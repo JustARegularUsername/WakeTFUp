@@ -1,5 +1,5 @@
 # WakeTFUp
 ---
-### Author Daniel Garkavy & Sebastian Hohendorf
+### Author Daniel Garkavy & Sebastian Hohendorf \(^.^)-
 >  Das ist die WakeTFUp APP für Android 
 >> https://github.com/DanielGarkavy/WakeTFUp
