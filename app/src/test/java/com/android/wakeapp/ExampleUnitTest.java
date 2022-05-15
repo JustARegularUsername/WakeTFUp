@@ -1,4 +1,4 @@
-package com.lolhaha.wakeapp;
+package com.android.wakeapp;
 
 import org.junit.Test;
 

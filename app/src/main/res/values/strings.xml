@@ -1,12 +1,22 @@
 <resources>
-    <string name="app_name">WakeApp</string>
-    <string name="action_settings">Settings</string>
-    <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
-    <string name="next">Next</string>
-    <string name="previous">Previous</string>
-
-    <string name="hello_first_fragment">Hello first fragment</string>
-    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="app_name">Wake TF App</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="timeButton">Ankunft</string>
+    <string name="opnvName">ÖPNV</string>
+    <string name="autoName">Auto</string>
+    <string name="vorbereitenTime">Vorbereitungszeit :</string>
+    <string name="gpsBtn">GPS</string>
+    <string name="gpsHint">Wohnort</string>
+    <string name="ankunftHint">Uhrzeit</string>
+    <string name="vorbereitungHint">Minuten</string>
+    <string name="gpsGranted">Let\'s Go!! (GPS Erlaubt)</string>
+    <string name="gpsDenied">GPS nicht erlaubt :(</string>
+    <string name="uhrPrefix24_1">0%1$d:0%2$d</string>
+    <string name="uhrPrefix24_2">%1$d:0%2$d</string>
+    <string name="uhrPrefix24_3">0%1$d:%2$d</string>
+    <string name="uhrPrefix24_4">%1$d:%2$d</string>
+    <string-array name="uhrPrefix12">
+        <item>AM</item>
+        <item>PM</item>
+    </string-array>
 </resources>
