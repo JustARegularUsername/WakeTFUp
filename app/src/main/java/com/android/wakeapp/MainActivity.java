@@ -1,9 +1,5 @@
 package com.android.wakeapp;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,10 +23,13 @@ import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.StrictMode;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -51,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
     private EditText gpsText;
     private EditText mapsText;
     private Intent intent;
+    private RadioButton opnv;
+    private RadioButton auto;
+    private Button berechnen;
+    private Address startAd;
+    private Address endAd;
+    //private ActivityResultLauncher<Intent> mapsActivityErgebnis; <-- Macht faxen lol/nutzen onActivityResult
 
 
     private FusedLocationProviderClient fusedLocationProviderClient;
@@ -62,32 +67,60 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
 
         mapsText = findViewById(R.id.editTextTextPostalAddress);
+        opnv = findViewById(R.id.opnvBtn);
+        auto = findViewById(R.id.autoBtn);
+        berechnen = findViewById(R.id.berechnenButton);
 
-        ActivityResultLauncher<Intent> mapsActivityErgebnis = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                new ActivityResultCallback<ActivityResult>() {
-                    @Override
-                    public void onActivityResult(ActivityResult result) {
-                        if (result.getResultCode() == Activity.RESULT_OK) {
-                            Bundle res = intent.getExtras();
-                            if (res != null) {
-                                mapsText.setText(res.getString("adresse"));
-                            } else {
-                                mapsText.setText(null);
-                            }
-                        }
-                    }
-                });
+        berechnen.setOnClickListener(v -> {
+            if (mapsText.getText() == null
+                    || mapsText.getText().toString().length() <= 3
+                    || gpsText.getText() == null
+                    || gpsText.getText().toString().length() <= 3
+            ) {
+                Toast.makeText(getApplicationContext(),"Bitte beide Adressen fuellen!", Toast.LENGTH_SHORT).show();
+            } else {
+                BVGAPI bvgapi = opnv.isChecked() && !auto.isChecked()
+                        ? new BVGAPI(startAd, endAd,true)
+                        : new BVGAPI(startAd, endAd,false);
+
+                try {
+                    bvgapi.getGesamtDauer();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Neue Version hat auf meinem Testgerät Probleme/ Verwenden stattdessen onActivityResult
+
+//        mapsActivityErgebnis = registerForActivityResult(
+//                new ActivityResultContracts.StartActivityForResult(),
+//                new ActivityResultCallback<ActivityResult>() {
+//                    @Override
+//                    public void onActivityResult(ActivityResult result, Intent test) {
+//                        if (result.getResultCode() == Activity.RESULT_OK) {
+//                            Bundle res = intent.getExtras();
+//                            if (res != null) {//res != null) {
+//                                mapsText.setText(intent.getStringExtra("adresseString"));
+//                            } else {
+//                                mapsText.setText("Test");
+//                            }
+//                        }
+//                    }
+//                });
 
         getLocationPermission();
         if (isAPIOk()) {
             // Maps Knopf
             btnMaps = findViewById(R.id.mapsBtn);
             btnMaps.setOnClickListener(v -> {
-                intent = new Intent(this.getApplicationContext(), MapsActivity.class);
-                mapsActivityErgebnis.launch(intent);
+                intent = new Intent(MainActivity.this, MapsActivity.class);
+                //mapsActivityErgebnis.launch(intent);
+                startActivityForResult(intent, 1);
             });
         }
 
@@ -112,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
                                             1);
                             gpsText = findViewById(R.id.textAdresse);
                             gpsText.setText(addresses.get(0).getAddressLine(0));
+                            startAd = addresses.get(0);
                             Toast.makeText(MainActivity.this, addresses.get(0).getAdminArea(), Toast.LENGTH_SHORT).show();
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -204,5 +238,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1) {
+            if (resultCode == Activity.RESULT_OK) {
+                Bundle res = data.getExtras();
+                if (res != null) {//res != null) {
+                    mapsText.setText(res.getString("adresseString"));
+                    endAd = (Address) res.get("adresseObject");
+                } else {
+                    mapsText.setText("Bitte erneut versuchen");
+                }
+            }
+        }
     }
 }

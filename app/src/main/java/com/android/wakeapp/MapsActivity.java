@@ -1,6 +1,7 @@
 package com.android.wakeapp;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
@@ -13,6 +14,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -131,14 +133,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             adressen = geocoder.getFromLocationName(search, 1);
             if (adressen.size() > 0) {
                 Address adresse = adressen.get(0);
-                Bundle bundle = new Bundle();
-                bundle.putString("adresse", adresse.getAddressLine(0));
-                Intent intent = getIntent();
-                intent.putExtra("adresse", adresse.getAddressLine(0).toString());
                 moveCamera(new LatLng(adresse.getLatitude(), adresse.getLongitude()), 15f, adresse.getAddressLine(0));
                 Toast.makeText(getApplicationContext(), adresse.getAddressLine(0), Toast.LENGTH_SHORT).show();
-                setResult(RESULT_OK, intent);
-
+                Intent intent = new Intent();
+                intent.putExtra("adresseString", adresse.getAddressLine(0));
+                intent.putExtra("adresseObject", adresse);
+                setResult(Activity.RESULT_OK, intent);
                 finish();
             }
         } catch (IOException e) {

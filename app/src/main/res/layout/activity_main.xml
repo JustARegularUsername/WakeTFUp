@@ -36,6 +36,7 @@
             android:id="@+id/opnvBtn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:checked="true"
             android:text="@string/opnvName" />
 
         <RadioButton
@@ -148,5 +149,27 @@
         app:layout_constraintStart_toEndOf="@+id/mapsBtn"
         app:layout_constraintTop_toTopOf="@+id/mapsBtn"
         android:autofillHints="" />
+
+    <TextView
+        android:id="@+id/berechneteUhrzeit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/berechnenText"
+        app:layout_constraintBottom_toTopOf="@+id/berechnenButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.92" />
+
+    <Button
+        android:id="@+id/berechnenButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/berechnenBtn"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.98" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

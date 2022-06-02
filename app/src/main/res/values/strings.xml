@@ -11,6 +11,8 @@
     <string name="vorbereitungHint">Minuten</string>
     <string name="mapsBtn">Maps</string>
     <string name="mapsHint">Zielort</string>
+    <string name="berechnenBtn">Berechnen</string>
+    <string name="berechnenText">Drücke den Button unten!</string>
     <string name="gpsGranted">Let\'s Go!! (GPS Erlaubt)</string>
     <string name="gpsDenied">GPS nicht erlaubt :(</string>
     <string name="uhrPrefix24_1">0%1$d:0%2$d</string>
