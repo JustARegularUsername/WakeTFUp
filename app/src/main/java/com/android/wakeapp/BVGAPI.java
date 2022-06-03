@@ -1,12 +1,14 @@
 package com.android.wakeapp;
 
 import android.location.Address;
+import android.util.Log;
 
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Objects;
 import java.util.Scanner;
 
 import javax.json.Json;
@@ -20,6 +22,7 @@ public class BVGAPI {
     private String journeyUri;
     private String[] locationUri;
     private boolean opvnOderNicht;
+    private String[] locIDs = new String[2];
 
     BVGAPI(Address start, Address ende, boolean opvnOderNicht) {
         this.adressen[0] = start;
@@ -40,6 +43,7 @@ public class BVGAPI {
 
     private String getLocationID(String locUri) throws IOException {
         URL url = new URL(locUri);
+        JsonObject jsonObject;
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
         connection.connect();
@@ -62,17 +66,23 @@ public class BVGAPI {
 
             JsonReader jsonReader = Json.createReader(new StringReader(streamString.toString()));
             JsonArray jsonArray = jsonReader.readArray();
+            jsonObject = jsonArray.getJsonObject(jsonArray.size() - 1);
+
+            Log.i("Loc. ID: ", jsonObject.get("id").toString());
+            Log.i("Array Groesse: ", Integer.toString(jsonArray.size()));
+
         }
-        return "";
+        return Objects.requireNonNull(jsonObject.get("id")).toString();
     }
 
     private String createJorneyUri() {
-        return "https://v5.bvg.transport.rest/journeys?from.latitude="
+        return "https://v5.bvg.transport.rest/journeys?"
+                + "from.id="
+                + locIDs[0]
+                + "&from.latitude="
                 + adressen[0].getLatitude()
                 + "&from.longitude="
                 + adressen[0].getLongitude()
-                + "&from.name="
-                + replaceSpecial(adressen[0].getAddressLine(0))
                 + "&to.latitude="
                 + adressen[1].getLatitude()
                 + "&to.longitude="
@@ -82,10 +92,13 @@ public class BVGAPI {
     }
 
     public int getGesamtDauer() throws IOException {
-        getLocationID(createLocationUri(adressen[0]));
         URL url = new URL(journeyUri);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
+
+        for (int i = 0; i < adressen.length; i++) {
+            this.locIDs[i] = getLocationID(createLocationUri(adressen[i]));
+        }
         connection.connect();
 
         int resultCode = connection.getResponseCode();
