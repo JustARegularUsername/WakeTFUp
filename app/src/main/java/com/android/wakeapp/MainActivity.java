@@ -1,6 +1,6 @@
 package com.android.wakeapp;
 
-import androidx.annotation.NonNull;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -10,8 +10,6 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 
 import android.Manifest;
 import android.app.Activity;
@@ -26,7 +24,6 @@ import android.os.Bundle;
 import android.os.StrictMode;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
@@ -34,8 +31,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.sql.Time;
+import java.text.ParseException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 // Wir nutzen Google Play Services, also ist ein Google Account notwendig!!
 // Wir könnten auch builtin services wie LocationManager nutzen, aber Google bietet eine tolle api
@@ -43,18 +43,15 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private int min, hour, vorbereitung;
-    private Button btnAnkunft;
-    private Button btnGPS;
-    private Button btnMaps;
     private EditText minVor;
     private EditText gpsText;
     private EditText mapsText;
     private Intent intent;
     private RadioButton opnv;
-    private RadioButton auto;
-    private Button berechnen;
     private Address startAd;
     private Address endAd;
+    private TextView ankunft;
+    private TextView aufstehen;
     //private ActivityResultLauncher<Intent> mapsActivityErgebnis; <-- Macht faxen lol/nutzen onActivityResult
 
 
@@ -72,8 +69,9 @@ public class MainActivity extends AppCompatActivity {
 
         mapsText = findViewById(R.id.editTextTextPostalAddress);
         opnv = findViewById(R.id.opnvBtn);
-        auto = findViewById(R.id.autoBtn);
-        berechnen = findViewById(R.id.berechnenButton);
+        Button berechnen = findViewById(R.id.berechnenButton);
+        ankunft = findViewById(R.id.timeText);
+        aufstehen = findViewById(R.id.berechneteUhrzeit);
 
         berechnen.setOnClickListener(v -> {
             if (mapsText.getText() == null
@@ -83,14 +81,23 @@ public class MainActivity extends AppCompatActivity {
             ) {
                 Toast.makeText(getApplicationContext(),"Bitte beide Adressen fuellen!", Toast.LENGTH_SHORT).show();
             } else {
-                BVGAPI bvgapi = opnv.isChecked() && !auto.isChecked()
-                        ? new BVGAPI(startAd, endAd,true)
-                        : new BVGAPI(startAd, endAd,false);
-
-                try {
-                    bvgapi.getGesamtDauer();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if (ankunft.getText().equals("") || vorbereitung <= 0) {
+                    Toast.makeText(getApplicationContext(), "Bitte Zeiten einstellen!", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), "Wird berechnet (kann dauern).", Toast.LENGTH_SHORT).show();
+                    Time ankunft = new Time(hour, min, 0);
+                    BVGAPI bvgapi = opnv.isChecked()
+                            ? new BVGAPI(startAd, endAd,true)
+                            : new BVGAPI(startAd, endAd,false);
+                    try {
+                        long fahrZeitMilli = TimeUnit.MINUTES.toMillis(bvgapi.getGesamtDauer());
+                        long vorbereitungMilli = TimeUnit.MINUTES.toMillis(vorbereitung);
+                        ankunft.setTime(ankunft.getTime() - (fahrZeitMilli + vorbereitungMilli));
+                        aufstehen.setText(getString(R.string.aufstehen, ankunft.toString()));
+                    }
+                    catch (IOException | ParseException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
@@ -116,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
         getLocationPermission();
         if (isAPIOk()) {
             // Maps Knopf
-            btnMaps = findViewById(R.id.mapsBtn);
+            Button btnMaps = findViewById(R.id.mapsBtn);
             btnMaps.setOnClickListener(v -> {
                 intent = new Intent(MainActivity.this, MapsActivity.class);
                 //mapsActivityErgebnis.launch(intent);
@@ -125,43 +132,39 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // GPS Knopf
-        btnGPS = findViewById(R.id.buttonGPS);
+        Button btnGPS = findViewById(R.id.buttonGPS);
         btnGPS.setOnClickListener(v -> {
             fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(MainActivity.this);
             if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
-            fusedLocationProviderClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
-                @Override
-                public void onComplete(@NonNull Task<Location> task) {
-                    Location location = task.getResult();
-                    if (location != null) {
-                        try {
-                            Geocoder geocoder = new Geocoder(MainActivity.this, Locale.GERMANY);
-                            List<Address> addresses = geocoder
-                                    .getFromLocation(
-                                            location.getLatitude(),
-                                            location.getLongitude(),
-                                            1);
-                            gpsText = findViewById(R.id.textAdresse);
-                            gpsText.setText(addresses.get(0).getAddressLine(0));
-                            startAd = addresses.get(0);
-                            Toast.makeText(MainActivity.this, addresses.get(0).getAdminArea(), Toast.LENGTH_SHORT).show();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+            fusedLocationProviderClient.getLastLocation().addOnCompleteListener(task -> {
+                Location location = task.getResult();
+                if (location != null) {
+                    try {
+                        Geocoder geocoder = new Geocoder(MainActivity.this, Locale.GERMANY);
+                        List<Address> addresses = geocoder
+                                .getFromLocation(
+                                        location.getLatitude(),
+                                        location.getLongitude(),
+                                        1);
+                        gpsText = findViewById(R.id.textAdresse);
+                        gpsText.setText(addresses.get(0).getAddressLine(0));
+                        startAd = addresses.get(0);
+                        Toast.makeText(MainActivity.this, addresses.get(0).getAdminArea(), Toast.LENGTH_SHORT).show();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
             });
         });
 
         // Ankuft Button / Time Picker overlay
-        btnAnkunft = findViewById(R.id.timeButton);
+        Button btnAnkunft = findViewById(R.id.timeButton);
         btnAnkunft.setOnClickListener(v -> {
             TimePickerDialog.OnTimeSetListener onTimeSetListener = (view1, hourOfDay, minute) -> {
                 min = minute;
                 hour = hourOfDay;
-                TextView ankunft = findViewById(R.id.timeText);
                 if (Integer.toString(hour).toCharArray().length < 2 && Integer.toString(min).toCharArray().length < 2) {
                     ankunft.setText(getString(R.string.uhrPrefix24_1, hour, min));
                 } else if (Integer.toString(hour).toCharArray().length == 2 && Integer.toString(min).toCharArray().length < 2) {
@@ -183,17 +186,22 @@ public class MainActivity extends AppCompatActivity {
         minVor.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
             }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                vorbereitung = Integer.parseInt(String.valueOf(minVor.getText()));
+                if (minVor.getText().length() >= 1) {
+                    vorbereitung = Integer.parseInt(String.valueOf(minVor.getText()));
+                } else {
+                    vorbereitung = 0;
+                }
             }
 
             @Override
             public void afterTextChanged(Editable s) {
                 Toast.makeText(getApplicationContext(),
-                        "Vorbereitung: " + s.toString() + " Minuten",
+                        "Vorbereitung: " + vorbereitung + " Minuten",
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -240,12 +248,13 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 1) {
             if (resultCode == Activity.RESULT_OK) {
+                assert data != null;
                 Bundle res = data.getExtras();
-                if (res != null) {//res != null) {
+                if (res != null) {
                     mapsText.setText(res.getString("adresseString"));
                     endAd = (Address) res.get("adresseObject");
                 } else {
-                    mapsText.setText("Bitte erneut versuchen");
+                    mapsText.setText(getString(R.string.mapsFail));
                 }
             }
         }

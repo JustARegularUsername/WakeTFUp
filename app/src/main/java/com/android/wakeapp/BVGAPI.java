@@ -1,5 +1,6 @@
 package com.android.wakeapp;
 
+import android.annotation.SuppressLint;
 import android.location.Address;
 import android.util.Log;
 
@@ -8,7 +9,10 @@ import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Objects;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Scanner;
 
 import javax.json.Json;
@@ -20,19 +24,21 @@ import javax.json.JsonReader;
 public class BVGAPI {
     private Address[] adressen = new Address[2];
     private String journeyUri;
-    private String[] locationUri;
     private boolean opvnOderNicht;
-    private String[] locIDs = new String[2];
+    private final String[][] jData = new String[2][3];
+    private final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ssXXX";
 
     BVGAPI(Address start, Address ende, boolean opvnOderNicht) {
         this.adressen[0] = start;
         this.adressen[1] = ende;
         this.opvnOderNicht = opvnOderNicht;
-        this.journeyUri = createJorneyUri();
     }
 
     private String replaceSpecial(String adresse) {
-        return adresse.replace(" ", "+").replace("ß", "ss");
+        return adresse
+                .replace(" ", "+")
+                .replace("ß", "ss")
+                .replace("\"", "");
     }
 
     private String createLocationUri(Address address) {
@@ -41,7 +47,7 @@ public class BVGAPI {
                 + "&results=1";
     }
 
-    private String getLocationID(String locUri) throws IOException {
+    private JsonObject getLocationID(String locUri) throws IOException {
         URL url = new URL(locUri);
         JsonObject jsonObject;
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -52,7 +58,7 @@ public class BVGAPI {
 
         if (resultCode != 200)
         {
-            throw new MalformedURLException("Fehler!: " + resultCode);
+            throw new MalformedURLException("HTTP Code Fehler!: " + resultCode);
         }
         else
         {
@@ -67,45 +73,66 @@ public class BVGAPI {
             JsonReader jsonReader = Json.createReader(new StringReader(streamString.toString()));
             JsonArray jsonArray = jsonReader.readArray();
             jsonObject = jsonArray.getJsonObject(jsonArray.size() - 1);
-
-            Log.i("Loc. ID: ", jsonObject.get("id").toString());
-            Log.i("Array Groesse: ", Integer.toString(jsonArray.size()));
-
         }
-        return Objects.requireNonNull(jsonObject.get("id")).toString();
+        return jsonObject;
     }
 
-    private String createJorneyUri() {
-        return "https://v5.bvg.transport.rest/journeys?"
-                + "from.id="
-                + locIDs[0]
-                + "&from.latitude="
-                + adressen[0].getLatitude()
-                + "&from.longitude="
-                + adressen[0].getLongitude()
-                + "&to.latitude="
-                + adressen[1].getLatitude()
-                + "&to.longitude="
-                + adressen[1].getLongitude()
-                + "&from.name="
-                + replaceSpecial(adressen[1].getAddressLine(0));
+    private String createJorneyUri(String[][] latLong) {
+        if (opvnOderNicht) {
+            return "https://v5.bvg.transport.rest/journeys?"
+                    + "&from.latitude="
+                    + latLong[0][0]
+                    + "&from.longitude="
+                    + latLong[0][1]
+                    + "&from.address="
+                    + latLong[0][2]
+                    + "&to.latitude="
+                    + latLong[1][0]
+                    + "&to.longitude="
+                    + latLong[1][1]
+                    + "&to.address="
+                    + latLong[1][2];
+        }
+        else {
+            // Andere URI fuer Auto nehmen spaeter
+            return "https://v5.bvg.transport.rest/journeys?"
+                    + "&from.latitude="
+                    + latLong[0][0]
+                    + "&from.longitude="
+                    + latLong[0][1]
+                    + "&from.address="
+                    + latLong[0][2]
+                    + "&to.latitude="
+                    + latLong[1][0]
+                    + "&to.longitude="
+                    + latLong[1][1]
+                    + "&to.address="
+                    + latLong[1][2];
+        }
     }
 
-    public int getGesamtDauer() throws IOException {
-        URL url = new URL(journeyUri);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
+    public long getGesamtDauer() throws IOException, ParseException {
+        JsonObject[] jo = new JsonObject[2];
+        long zeit = 0;
 
         for (int i = 0; i < adressen.length; i++) {
-            this.locIDs[i] = getLocationID(createLocationUri(adressen[i]));
+            jo[i] = getLocationID(createLocationUri(adressen[i]));
+            jData[i][0] = String.valueOf(jo[i].get("latitude"));
+            jData[i][1] = String.valueOf(jo[i].get("longitude"));
+            jData[i][2] = String.valueOf(jo[i].get("address"));
         }
+        journeyUri = replaceSpecial(createJorneyUri(jData));
+
+        URL url = new URL(journeyUri);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        connection.setRequestMethod("GET");
         connection.connect();
 
         int resultCode = connection.getResponseCode();
-
         if (resultCode != 200)
         {
-            throw new MalformedURLException("Fehler!: " + resultCode);
+            throw new MalformedURLException("HTTP Code Fehler!: " + resultCode);
         }
         else
         {
@@ -118,33 +145,27 @@ public class BVGAPI {
             scanner.close();
 
             JsonReader jsonReader = Json.createReader(new StringReader(streamString.toString()));
-            JsonArray jsonArray = jsonReader.readArray();
+            JsonArray ja = jsonReader
+                    .readObject()
+                    .getJsonArray("journeys")
+                    .get(0)
+                    .asJsonObject()
+                    .getJsonArray("legs");
+            Log.i("Array Laenge ", Integer.toString(ja.size()));
+
+
+            for (int i = 0; i < ja.size(); i++) {
+                JsonObject jsonObject = ja.get(i).asJsonObject();
+
+                @SuppressLint("SimpleDateFormat") SimpleDateFormat sdf = new SimpleDateFormat(ISO_8601);
+                Date departure = sdf.parse(jsonObject.getString("departure"));
+                Date arrival = sdf.parse(jsonObject.getString("arrival"));
+
+                assert arrival != null;
+                assert departure != null;
+                zeit += ((arrival.getTime() / 1000) / 60) - ((departure.getTime() / 1000) / 60);
+            }
         }
-        return 0;
-    }
-
-
-    public Address[] getAdressen() {
-        return adressen;
-    }
-
-    public void setAdressen(Address[] adressen) {
-        this.adressen = adressen;
-    }
-
-    public String getJourneyUri() {
-        return journeyUri;
-    }
-
-    public void setJourneyUri(String journeyUri) {
-        this.journeyUri = journeyUri;
-    }
-
-    public boolean isOpvnOderNicht() {
-        return opvnOderNicht;
-    }
-
-    public void setOpvnOderNicht(boolean opvnOderNicht) {
-        this.opvnOderNicht = opvnOderNicht;
+        return zeit;
     }
 }

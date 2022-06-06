@@ -20,6 +20,8 @@
     <string name="uhrPrefix24_3">0%1$d:%2$d</string>
     <string name="uhrPrefix24_4">%1$d:%2$d</string>
     <string name="mapsSearchHint">Straße oder Postleihzahl</string>
+    <string name="aufstehen">Aufstehen: %s</string>
+    <string name="mapsFail">Bitte erneut versuchen</string>
     <string-array name="uhrPrefix12">
         <item>AM</item>
         <item>PM</item>
